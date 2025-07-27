@@ -1,6 +1,6 @@
 import { collection, addDoc, getDocs, query, where, orderBy } from "firebase/firestore";
 import { db } from "../utils/firebaseConfiguration.js";
-import { uploadToDrive } from "../middleware/googleDrive2.js";
+// import { uploadToDrive } from "../middleware/googleDrive2.js";
 
 
 const folderId = "1RrOSC25gClytkBDptOH3UorxzBxflEHg";
@@ -18,12 +18,13 @@ export const createBlog = async (req, res) => {
     }
 
     // Upload image to the specified Google Drive folder
-    const imageURL = await uploadToDrive(
-      file.buffer,
-      `${Date.now()}_${file.originalname}`,
-      file.mimetype,
-      folderId
-    );
+    // const imageURL = await uploadToDrive(
+    //   file.buffer,
+    //   `${Date.now()}_${file.originalname}`,
+    //   file.mimetype,
+    //   folderId
+    // );
+    const imageURL = "";
 
     // Save blog details to Firestore
     const docRef = await addDoc(collection(db, "blogs"), {
