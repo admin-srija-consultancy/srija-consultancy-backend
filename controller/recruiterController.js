@@ -11,6 +11,7 @@ import { db } from "../utils/firebaseConfiguration.js";
 import { v4 as uuidv4 } from "uuid";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
+import ExcelJS from "exceljs";
 
 dotenv.config();
 
@@ -339,3 +340,57 @@ export const updateRequestedJob = async (req, res) => {
   }
 };
 
+export const getAllPartner = async(req,res)=>{
+  try {
+    const partnersRef = collection(db, "recruiters");
+    const querySnapshot = await getDocs(partnersRef);
+
+    const partners = [];
+    querySnapshot.forEach((doc) => {
+      partners.push({ id: doc.id, ...doc.data() });
+    });
+
+    return res.status(200).json({ recruiters: partners });
+  } catch (error) {
+    console.error("Error fetching partners:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+export const getPartnersInCSV = async (req, res) => {
+  try {
+    const snapshot = await getDocs(collection(db, "recruiters"));
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Partners");
+
+    worksheet.columns = [
+      { header: "Company Name", key: "companyName", width: 30 },
+      { header: "Contact Person", key: "contactPersonName", width: 25 },
+      { header: "Email", key: "email", width: 30 },
+      { header: "Phone Number", key: "phone", width: 20 }
+    ];
+
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      worksheet.addRow({
+        companyName: data.companyName || '',
+        contactPersonName: data.contactPersonName || '',
+        email: data.email || '',
+        phone: data.jobsRequested?.number || ''
+      });
+    });
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader('Content-Disposition', 'attachment; filename=partners.xlsx');
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Error generating partners CSV:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
