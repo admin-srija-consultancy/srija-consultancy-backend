@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, query, where, orderBy } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, where, orderBy,doc,deleteDoc } from "firebase/firestore";
 import { db } from "../utils/firebaseConfiguration.js";
 // import { uploadToDrive } from "../middleware/googleDrive2.js";
 
@@ -63,6 +63,24 @@ export const fetchBlogs = async (req, res) => {
   } catch (error) {
     console.error("Error fetching blogs:", error);
     res.status(500).json({ error: "Failed to fetch blog posts" });
+  }
+};
+
+export const deleteBlog = async (req, res) => {
+  try{
+    const {id} = req.body;
+    if (!id) {
+      return res.status(400).json({ error: "Blog ID is required" });
+    }
+
+    // Delete the blog from Firestore
+    const blogRef = doc(db, "blogs", id);
+    await deleteDoc(blogRef);
+
+    res.status(200).json({ message: "Blog deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting blog:", error);
+    res.status(500).json({ error: "Failed to delete blog post" });
   }
 };
 

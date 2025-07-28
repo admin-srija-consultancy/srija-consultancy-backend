@@ -6,9 +6,10 @@ import {
   query,
   where,
   getDocs,
+  doc
 } from "firebase/firestore";
 import dotenv from "dotenv";
-import { createBlog, fetchBlogs, getJobsRequested } from "../controller/adminController.js";
+import { createBlog, deleteBlog, fetchBlogs, getJobsRequested } from "../controller/adminController.js";
 import upload from "../middleware/upload.js";
 
 dotenv.config();
@@ -18,6 +19,7 @@ const router = express.Router();
 router.use("/add-blogs",upload.single("file"),createBlog);
 router.use("/fetch-blogs",fetchBlogs)
 router.use("/getJobsRequested",getJobsRequested)
+router.use("/delete-blog",deleteBlog)
 
 router.post("/notify-interest", async (req, res) => {
   try {
