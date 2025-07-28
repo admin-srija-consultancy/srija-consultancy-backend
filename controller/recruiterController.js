@@ -377,7 +377,7 @@ export const getPartnersInCSV = async (req, res) => {
         companyName: data.companyName || '',
         contactPersonName: data.contactPersonName || '',
         email: data.email || '',
-        phone: data.jobsRequested?.number || ''
+        phone: data.number || ''
       });
     });
 
