@@ -16,11 +16,24 @@ const App = express();
 const port = process.env.PORT || 5000;
 
 // App.use(cors())
+const allowedOrigins = [
+  "https://srija-consultancy.netlify.app",
+  "http://127.0.0.1:5501",
+  "https://srijaconsultancy.in/"
+];
+
 App.use(cors({
-  origin: "https://srija-consultancy.netlify.app",
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true,
 }));
+
 App.use(express.json());
 App.use(express.urlencoded({ extended: true }));
 App.use("/api/login/",loginRouter);
