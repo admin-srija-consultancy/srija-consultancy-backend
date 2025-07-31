@@ -1,5 +1,6 @@
-import { collection, addDoc, getDocs, query, where, orderBy,doc,deleteDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, where, getDoc,doc,deleteDoc } from "firebase/firestore";
 import { db } from "../utils/firebaseConfiguration.js";
+import ExcelJS from "exceljs";
 // import { uploadToDrive } from "../middleware/googleDrive2.js";
 
 
@@ -121,5 +122,75 @@ export const getJobsRequested = async (req, res) => {
   } catch (error) {
     console.error("Error fetching job requests:", error);
     res.status(500).json({ error: "Failed to fetch job requests" });
+  }
+};
+
+
+
+
+
+export const getCandidatesForJobInExcel = async (req, res) => {
+  try {
+    const { jobId, category } = req.body; // or use req.body depending on method
+    if (!jobId || !category) {
+      return res.status(400).json({ message: "jobId and category are required" });
+    }
+
+    const safeCategory = category.replace(/\//g, "-or-");
+    const jobDocRef = doc(db, "jobs", safeCategory, "list", jobId);
+    const jobSnap = await getDoc(jobDocRef);
+
+    if (!jobSnap.exists()) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    const jobData = jobSnap.data();
+    const candidateIds = jobData.interestedCandidates || [];
+
+    if (!candidateIds.length) {
+      return res.status(404).json({ message: "No candidates applied for this job" });
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Candidates");
+
+    worksheet.columns = [
+      { header: "Name", key: "name", width: 25 },
+      { header: "Email", key: "email", width: 30 },
+      { header: "Phone", key: "phone", width: 15 },
+      { header: "Education", key: "education", width: 30 },
+      { header: "Resume URL", key: "resume", width: 50 },
+      
+    ];
+
+    for (const c of candidateIds) {
+      const candidateId = typeof c === "string" ? c : c.candidateId;
+      const candidateDoc = await getDoc(doc(db, "candidates", candidateId));
+      if (candidateDoc.exists()) {
+        const data = candidateDoc.data();
+        worksheet.addRow({
+          name: data.name || '',
+          email: data.email || '',
+          phone: data.number || '',
+          resume: data.resumeURL || '',
+          education: data.education || ''
+        });
+      }
+    }
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=candidates_${jobId}.xlsx`
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Error generating Excel:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };

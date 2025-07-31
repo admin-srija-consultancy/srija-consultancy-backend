@@ -168,25 +168,37 @@ export const fetchAllJobs = async (req, res) => {
   }
 };
 
-export const getJobByCategory = async(req,res)=>{
+export const getJobByCategory = async (req, res) => {
   try {
-    const {category} = req.body;
-    const safeCategory = category.replace(/\//g, "-or-");
+    const { category, candidateId } = req.body;
+    if (!category) {
+      return res.status(400).json({ message: "Category is required" });
+    }
 
-    const listRef = collection(db,"jobs",safeCategory,"list");
+    const safeCategory = category.replace(/\//g, "-or-");
+    const listRef = collection(db, "jobs", safeCategory, "list");
 
     const jobsSnapshot = await getDocs(listRef);
 
-    const jobs = jobsSnapshot.docs.map(doc=>({
-      id:doc.id,
-      ...doc.data()
-    }))
+    const jobs = jobsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
 
-    return res.status(200).json(jobs);
+    // If candidateId is provided, return only jobs where they have NOT applied
+    const filteredJobs = candidateId
+      ? jobs.filter(job =>
+          !Array.isArray(job.interestedCandidates) ||
+          !job.interestedCandidates.includes(candidateId)
+        )
+      : jobs;
+
+    return res.status(200).json(filteredJobs);
   } catch (error) {
-    return res.status(500).json({message:error.message})
+    return res.status(500).json({ message: error.message });
   }
-}
+};
+
 
 export const getJobCategory = async (req, res) => {
   try {

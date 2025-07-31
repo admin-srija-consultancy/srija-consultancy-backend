@@ -6,40 +6,50 @@ import {
   query,
   where,
   getDocs,
-  doc
+  doc,
+  getDoc,
+  updateDoc,
 } from "firebase/firestore";
 import dotenv from "dotenv";
-import { createBlog, deleteBlog, fetchBlogs, getJobsRequested } from "../controller/adminController.js";
+import {
+  createBlog,
+  deleteBlog,
+  fetchBlogs,
+  getCandidatesForJobInExcel,
+  getJobsRequested,
+} from "../controller/adminController.js";
 import upload from "../middleware/upload.js";
+import { arrayUnion } from "firebase/firestore";
 
 dotenv.config();
 
 const router = express.Router();
 
-router.use("/add-blogs",upload.single("file"),createBlog);
-router.use("/fetch-blogs",fetchBlogs)
-router.use("/getJobsRequested",getJobsRequested)
-router.use("/delete-blog",deleteBlog)
+router.use("/add-blogs", upload.single("file"), createBlog);
+router.use("/fetch-blogs", fetchBlogs);
+router.use("/getJobsRequested", getJobsRequested);
+router.use("/delete-blog", deleteBlog);
+router.use("/getCandidatesForJobInExcel",getCandidatesForJobInExcel)
 
 router.post("/notify-interest", async (req, res) => {
   try {
-    const { jobId, candidateEmail } = req.body;
+    const { jobId, jobCategory, email } = req.body;
 
-    // Query jobs where jobId == jobId
-    const jobsRef = collection(db, "jobs");
-    const jobQuery = query(jobsRef, where("uniqueJobId", "==", jobId));
-    const jobSnapshot = await getDocs(jobQuery);
+    const safeCategory = jobCategory.replace(/\//g, "-or-");
 
-    if (jobSnapshot.empty) {
+    // Reference the specific job document directly by ID
+    const jobDocRef = doc(db, "jobs", safeCategory, "list", jobId);
+    const jobSnap = await getDoc(jobDocRef);
+
+    if (!jobSnap.exists()) {
       return res.status(404).json({ message: "Job not found" });
     }
 
-    const jobDoc = jobSnapshot.docs[0];
-    const job = jobDoc.data();
+    const job = jobSnap.data();
 
-    // Query candidates where email == candidateEmail
+    // Query candidate by email
     const candidatesRef = collection(db, "candidates");
-    const candidateQuery = query(candidatesRef, where("email", "==", candidateEmail));
+    const candidateQuery = query(candidatesRef, where("email", "==", email));
     const candidateSnapshot = await getDocs(candidateQuery);
 
     if (candidateSnapshot.empty) {
@@ -48,6 +58,22 @@ router.post("/notify-interest", async (req, res) => {
 
     const candidateDoc = candidateSnapshot.docs[0];
     const candidate = candidateDoc.data();
+    const candidateId = candidateDoc.id;
+
+    // Add candidate ID to job's interestedCandidates array
+    await updateDoc(jobDocRef, {
+      interestedCandidates: arrayUnion(candidateId),
+    });
+
+    // Add job ID to candidate's interestedJobs array
+    const candidateDocRef = doc(db, "candidates", candidateId);
+    await updateDoc(candidateDocRef, {
+      interestedJobs: arrayUnion({
+        company: job.company,
+        title: job.title,
+        jobId: jobId,
+      }),
+    });
 
     // Setup Nodemailer
     const transporter = nodemailer.createTransport({
@@ -59,9 +85,9 @@ router.post("/notify-interest", async (req, res) => {
     });
 
     const mailOptions = {
-      from:process.env.ADMIN_EMAIL,
+      from: process.env.ADMIN_EMAIL,
       to: process.env.ADMIN_EMAIL,
-      subject: `Candidate Interested in ${job.role}`,
+      subject: `Candidate Interested in ${job.title}`,
       html: `
   <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
     <h2 style="color: #2c3e50;">📩 Candidate Interest Notification</h2>
@@ -135,7 +161,6 @@ router.post("/notify-interest", async (req, res) => {
     <p style="margin-top: 30px;">Regards,<br><strong>Career Portal</strong></p>
   </div>
 `,
-
     };
 
     await transporter.sendMail(mailOptions);
