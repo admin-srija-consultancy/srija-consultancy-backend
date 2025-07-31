@@ -18,7 +18,8 @@ const port = process.env.PORT || 5000;
 // App.use(cors())
 const allowedOrigins = [
   "https://srija-consultancy.netlify.app",
-  "https://srijaconsultancy.in"
+  "https://srijaconsultancy.in",
+  "http://127.0.0.1:5501"
 ];
 
 App.use(cors({

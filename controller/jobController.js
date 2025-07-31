@@ -171,6 +171,9 @@ export const fetchAllJobs = async (req, res) => {
 export const getJobByCategory = async (req, res) => {
   try {
     const { category, candidateId } = req.body;
+    if(candidateId === '' || candidateId === undefined || candidateId === null) {
+      console.log("candidateId is empty or undefined");
+    }
     if (!category) {
       return res.status(400).json({ message: "Category is required" });
     }

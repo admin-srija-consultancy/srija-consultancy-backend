@@ -4,7 +4,9 @@ import {
   where,
   getDocs,
   updateDoc,
+  getDoc,
   setDoc,
+  deleteDoc,
   doc,
 } from "firebase/firestore";
 import { db } from "../utils/firebaseConfiguration.js";
@@ -253,92 +255,54 @@ export const getRecruiterJobs = async (req, res) => {
 
 export const deleteRequestedJob = async (req, res) => {
   try {
-    const { requestId, email } = req.body;
+    const { jobId } = req.body;
 
-    const recruiterRef = collection(db, "recruiters");
-    const q = query(recruiterRef, where("email", "==", email));
-    const querySnapshot = await getDocs(q);
+    const jobDocRef = doc(db, "jobsRequested", jobId);
+    const jobSnap = await getDoc(jobDocRef);
 
-    if (querySnapshot.empty) {
-      return res.status(404).json({ message: "Recruiter not found" });
+    if (!jobSnap.exists()) {
+      return res.status(404).json({ message: "Job request not found" });
     }
 
-    const recruiterDoc = querySnapshot.docs[0];
-    const recruiterDocRef = recruiterDoc.ref;
-    const recruiterData = recruiterDoc.data();
+    // Delete the document
+    await deleteDoc(jobDocRef);
 
-    const jobPosted = recruiterData.jobsRequested || [];
+    return res.status(200).json({ message: "Job request deleted successfully" });
 
-    // Filter out the job with the matching requestId
-    const updatedJobs = jobPosted.filter((job) => job.requestId !== requestId);
-
-    // Update the Firestore document with the filtered array
-    await updateDoc(recruiterDocRef, {
-      jobsRequested: updatedJobs,
-    });
-
-    return res
-      .status(200)
-      .json({ message: "Job request deleted successfully" });
   } catch (error) {
-    console.error("Error deleting requested job:", error);
+    console.error("❌ Error deleting requested job:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
 
 export const updateRequestedJob = async (req, res) => {
   try {
-    const { jobId, email, updatedData } = req.body;
+    const { jobId, updatedData } = req.body;
 
-    console.log("➡️ Incoming update request:", { jobId, email, updatedData });
+    console.log("➡️ Incoming update request:", { jobId, updatedData });
 
-    // Step 1: Find recruiter by email
-    const recruiterRef = collection(db, "recruiters");
-    const q = query(recruiterRef, where("email", "==", email));
-    const querySnapshot = await getDocs(q);
+    const jobDocRef = doc(db, "jobsRequested", jobId);
+    const jobSnap = await getDoc(jobDocRef);
 
-    if (querySnapshot.empty) {
-      return res.status(404).json({ message: "Recruiter not found" });
+    if (!jobSnap.exists()) {
+      return res.status(404).json({ message: "Job request not found" });
     }
 
-    const recruiterDoc = querySnapshot.docs[0];
-    const recruiterDocRef = recruiterDoc.ref;
-    const recruiterData = recruiterDoc.data();
+    // Log old data (for debugging)
+    console.log("🔁 Old Job Data:", jobSnap.data());
 
-    let jobsRequested = recruiterData.jobsRequested || [];
+    // Directly update the document fields with updatedData
+    await updateDoc(jobDocRef, updatedData);
 
-    // Step 2: Find the job by jobId
-    const jobIndex = jobsRequested.findIndex((job) => job.requestId === jobId);
-    if (jobIndex === -1) {
-      return res.status(404).json({ message: "Job not found" });
-    }
-
-    // Step 3: Update the specific job (log old and new for debug)
-    const oldJob = jobsRequested[jobIndex];
-    const updatedJob = {
-      ...oldJob,
-      ...updatedData, // ✅ Overwrite fields like `title`, `description`, etc.
-    };
-
-    console.log("🔁 Old Job:", oldJob);
-    console.log("✅ New Job:", updatedJob);
-
-    jobsRequested[jobIndex] = updatedJob;
-
-    // Step 4: Write back updated array to Firestore
-    await updateDoc(recruiterDocRef, {
-      jobsRequested: jobsRequested,
-    });
-
-    // Step 5: Confirm write
     console.log("✅ Job updated successfully.");
     return res.status(200).json({ message: "Job updated successfully" });
 
   } catch (error) {
-    console.error("❌ Error updating requested job:", error);
+    console.error("❌ Error updating job request:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
 export const getAllPartner = async(req,res)=>{
   try {
