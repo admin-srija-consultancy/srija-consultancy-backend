@@ -147,7 +147,7 @@ export const postJob = async (req, res) => {
     // Job data
     const jobData = {
       uniqueJobId,
-      jobTitle,
+      title:jobTitle,
       category,
       description,
       experience,
@@ -156,7 +156,7 @@ export const postJob = async (req, res) => {
       qualification,
       salary,
       vacancy,
-      companyName,
+      company:companyName,
       contactPersonName,
       email,
       number,
