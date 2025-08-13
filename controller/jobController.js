@@ -161,7 +161,6 @@ export const postJob = async (req, res) => {
   email,                              // unchanged
   number,                             // unchanged
   status,                             // unchanged
-  responsibility,                    // added based on your example
   requestedAt: requestedAt || new Date().toISOString()
 };
 
