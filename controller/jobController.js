@@ -146,23 +146,25 @@ export const postJob = async (req, res) => {
 
     // Job data
     const jobData = {
-      uniqueJobId,
-      title:jobTitle,
-      category,
-      description,
-      experience,
-      jobType,
-      location,
-      qualification,
-      salary,
-      vacancy,
-      company:companyName,
-      contactPersonName,
-      email,
-      number,
-      status,
-      requestedAt: requestedAt || new Date().toISOString()
-    };
+  uniqueId: uniqueJobId,           // was uniqueJobId
+  title: jobTitle,                  // unchanged
+  jobCategory: category,            // renamed to match your example
+  description,                      // unchanged
+  experience,                       // unchanged
+  jobType,                          // unchanged
+  location,                          // unchanged
+  qualification,                     // unchanged
+  salary,                             // unchanged
+  vacancy,                            // unchanged
+  company: companyName,              // renamed to 'company'
+  contactPersonName,                 // unchanged
+  email,                              // unchanged
+  number,                             // unchanged
+  status,                             // unchanged
+  responsibility,                    // added based on your example
+  requestedAt: requestedAt || new Date().toISOString()
+};
+
 
     // 1. Add to category collection
     const categoryDocRef = doc(db, "jobs", safeCategory);
