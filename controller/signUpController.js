@@ -1,4 +1,4 @@
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../utils/firebaseConfiguration.js";
 import { v2 as cloudinary } from "cloudinary";
 import { config } from "dotenv";
@@ -10,42 +10,8 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
-const folderId = '1mycRo1Vk09V1MSqGybmpjtk8vX1lj-ew'
-// export const candidateSignUp = async (req, res) => {
-//   try {
-//     const { name, email, number, education } = req.body;
-//     const file = req.file;
+const folderId = process.env.FOLDER_ID
 
-//     if (!file) {
-//       return res.status(400).json({ error: "Resume file is missing" });
-//     }
-
-//     // const result = await uploadToCloudinary();
-//      const driveLink = await uploadToDrive(file.buffer, `${Date.now()}_${file.originalname}`, file.mimetype, folderId);
-//     const appliedJobs=[]
-//     // Step 2: Save candidate data to Firestore
-//     const docRef = await addDoc(collection(db, "candidates"), {
-//       name,
-//       email,
-//       number,
-//       education,
-//       // resumeURL: result.secure_url,
-//       resumeURL:driveLink,
-//       appliedJobs,
-//       timestamp: new Date(),
-//     });
-
-//     res.status(200).json({ message: "Candidate data uploaded", id: docRef.id });
-//   } catch (error) {
-//     console.error("Error uploading candidate data:", error);
-//     res.status(500).json({ error: "Internal Server Error" });
-//   }
-// // };
-// import { uploadToDrive } from "../utils/googleDrive.js";
-// import { db } from "../utils/firebaseConfiguration.js";
-// import { addDoc, collection } from "firebase/firestore";
-
-// const folderId = "YOUR_FOLDER_ID_HERE"; // Replace with actual Google Drive folder ID
 
 export const candidateSignUp = async (req, res) => {
   try {
@@ -53,8 +19,23 @@ export const candidateSignUp = async (req, res) => {
     const file = req.file;
     if (!file) return res.status(400).json({ error: "Resume file is missing" });
 
-    const driveLink = await uploadToDrive(file.buffer, `${Date.now()}_${file.originalname}`, file.mimetype, folderId);
+    // 1️⃣ Check if candidate with same email exists
+    const q = query(collection(db, "candidates"), where("email", "==", email));
+    const existing = await getDocs(q);
 
+    if (!existing.empty) {
+      return res.status(400).json({ error: "Candidate with this email already exists" });
+    }
+
+    // 2️⃣ Upload file to Google Drive
+    const driveLink = await uploadToDrive(
+      file.buffer,
+      `${Date.now()}_${file.originalname}`,
+      file.mimetype,
+      folderId
+    );
+
+    // 3️⃣ Add new candidate document
     const docRef = await addDoc(collection(db, "candidates"), {
       name,
       email,
@@ -73,20 +54,45 @@ export const candidateSignUp = async (req, res) => {
 };
 
 
-export const recruiterSignUp = async(req,res)=>{
-    console.log(req.body)
-    const {companyName, contactPersonName, email, number} = req.body;
+export const recruiterSignUp = async (req, res) => {
+  const { companyName, contactPersonName, email, number } = req.body;
 
-    try {
-        const docRef = await addDoc(collection(db,"recruiters"),{
-            companyName,
-            contactPersonName,
-            email,
-            number
-        });
-        console.log("registered")
-        res.status(200).json({message:"Registeration Successful"});
-    } catch (error) {
-        res.status(500).json({message:"Something went wrong"});
+  try {
+    
+
+    // 2️⃣ Check for duplicate company name
+    const companyQuery = query(
+      collection(db, "recruiters"),
+      where("companyName", "==", companyName)
+    );
+    const companySnapshot = await getDocs(companyQuery);
+
+    if (!companySnapshot.empty) {
+      return res.status(400).json({ message: "This company name already exists" });
     }
-}
+    // 1️⃣ Check for duplicate email
+    const emailQuery = query(
+      collection(db, "recruiters"),
+      where("email", "==", email)
+    );
+    const emailSnapshot = await getDocs(emailQuery);
+
+    if (!emailSnapshot.empty) {
+      return res.status(400).json({ message: "Recruiter with this email already exists" });
+    }
+
+    // 3️⃣ Add new recruiter
+    await addDoc(collection(db, "recruiters"), {
+      companyName,
+      contactPersonName,
+      email,
+      number,
+    });
+
+    console.log("Recruiter registered");
+    res.status(200).json({ message: "Registration Successful" });
+  } catch (error) {
+    console.error("Error registering recruiter:", error);
+    res.status(500).json({ message: "Something went wrong" });
+  }
+};

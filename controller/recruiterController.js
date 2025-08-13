@@ -172,53 +172,91 @@ export const requestAJobPosting = async (req, res) => {
     await setDoc(doc(db, "jobsRequested", requestId), newJobRequest);
 
     // Send admin notification email
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
+  const transporter = nodemailer.createTransport({
+      host:'smtpout.secureserver.net',
+      port:465,
+      secure:true,
       auth: {
         user: process.env.ADMIN_EMAIL,
         pass: process.env.ADMIN_PASS,
       },
     });
 
-    const mailOptions = {
-      from: process.env.ADMIN_EMAIL,
-      to: process.env.ADMIN_EMAIL,
-      subject: `🆕 New Job Request: ${jobTitle}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; color: #333;">
-          <h2>📢 New Job Posting Request</h2>
-          <p><strong>Recruiter:</strong></p>
-          <ul>
-            <li><strong>Name:</strong> ${recruiter.contactPersonName}</li>
-            <li><strong>Email:</strong> ${recruiter.email}</li>
-            <li><strong>Company:</strong> ${recruiter.companyName}</li>
-            <li><strong>Number:</strong> ${recruiter.number}</li>
-          </ul>
+// 1️⃣ Email to Admin
+const mailOptions = {
+  from: process.env.ADMIN_EMAIL,
+  to: process.env.PARTNER_EMAIL, // Admin inbox
+  subject: `🆕 New Job Request: ${jobTitle}`,
+  html: `
+    <div style="font-family: Arial, sans-serif; color: #333;">
+      <h2>📢 New Job Posting Request</h2>
+      <p><strong>Recruiter:</strong></p>
+      <ul>
+        <li><strong>Name:</strong> ${recruiter.contactPersonName}</li>
+        <li><strong>Email:</strong> ${recruiter.email}</li>
+        <li><strong>Company:</strong> ${recruiter.companyName}</li>
+        <li><strong>Number:</strong> ${recruiter.number}</li>
+      </ul>
 
-          <h3>💼 Job Details</h3>
-          <ul>
-            <li><strong>Title:</strong> ${jobTitle}</li>
-            <li><strong>Description:</strong> ${description}</li>
-            <li><strong>Location:</strong> ${location}</li>
-            <li><strong>Qualification:</strong> ${qualification}</li>
-            <li><strong>Experience:</strong> ${experience}</li>
-            <li><strong>Vacancy:</strong> ${vacancy}</li>
-            <li><strong>Job Type:</strong> ${jobType}</li>
-            <li><strong>Salary:</strong> ${salary}</li>
-            <li><strong>Status:</strong> Pending Approval</li>
-          </ul>
+      <h3>💼 Job Details</h3>
+      <ul>
+        <li><strong>Title:</strong> ${jobTitle}</li>
+        <li><strong>Description:</strong> ${description}</li>
+        <li><strong>Location:</strong> ${location}</li>
+        <li><strong>Qualification:</strong> ${qualification}</li>
+        <li><strong>Experience:</strong> ${experience}</li>
+        <li><strong>Vacancy:</strong> ${vacancy}</li>
+        <li><strong>Job Type:</strong> ${jobType}</li>
+        <li><strong>Salary:</strong> ${salary}</li>
+        <li><strong>Status:</strong> Pending Approval</li>
+      </ul>
 
-          <p style="margin-top: 20px;">📌 Please review and approve this request in the admin dashboard.</p>
-          <p>Regards,<br><strong>Career Portal</strong></p>
-        </div>
-      `,
-    };
+      <p style="margin-top: 20px;">📌 Please review and approve this request in the admin dashboard.</p>
+      <p>Regards,<br><strong>Career Portal</strong></p>
+    </div>
+  `,
+};
 
-    await transporter.sendMail(mailOptions);
-
-    return res.status(200).json({
-      message: "Job request submitted successfully.",
+await transporter.sendMail(mailOptions);
+  const acktransporter = nodemailer.createTransport({
+      host:'smtpout.secureserver.net',
+      port:465,
+      secure:true,
+      auth: {
+        user: process.env.PARTNER_EMAIL,
+        pass: process.env.PARTNER_PASS,
+      },
     });
+// 2️⃣ Acknowledgment Email to Recruiter
+const ackMailOptions = {
+  from: process.env.ADMIN_EMAIL,
+  to: recruiter.email, // Company person who submitted
+  subject: `✅ Job Request Received: ${jobTitle}`,
+  html: `
+    <div style="font-family: Arial, sans-serif; color: #333;">
+      <h2>Hi ${recruiter.contactPersonName},</h2>
+      <p>Thank you for submitting your job posting request to Career Portal.</p>
+      <p>Our admin team has received your request for the position <strong>${jobTitle}</strong> at <strong>${recruiter.companyName}</strong>.</p>
+      <p>We will review it shortly and notify you once it is approved.</p>
+      <p>📌 Job Summary:</p>
+      <ul>
+        <li><strong>Location:</strong> ${location}</li>
+        <li><strong>Qualification:</strong> ${qualification}</li>
+        <li><strong>Experience:</strong> ${experience}</li>
+        <li><strong>Vacancy:</strong> ${vacancy}</li>
+        <li><strong>Job Type:</strong> ${jobType}</li>
+      </ul>
+      <p>Regards,<br><strong>Career Portal Team</strong></p>
+    </div>
+  `,
+};
+
+await acktransporter.sendMail(ackMailOptions);
+
+return res.status(200).json({
+  message: "Job request submitted successfully and acknowledgment sent.",
+});
+
 
   } catch (error) {
     console.error("Error requesting job posting:", error);

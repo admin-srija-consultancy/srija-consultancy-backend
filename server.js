@@ -8,6 +8,8 @@ import candidateRouter from "./router/candidateRouter.js";
 import router from "./router/notifyRouter.js";
 import recruiterRouter from "./router/recruiterRouter.js";
 import googleAuthRoutes from "./router/googleAuth.js";
+import { dummyEmailService } from "./controller/dummyAPI.js";
+import { contactFormHandler } from "./controller/contactController.js";
 // import insertData from "./dummyDataInsertion.js";
 config();
 // insertData(); 
@@ -42,11 +44,13 @@ App.use("/api/jobs/",jobRouter);
 App.use("/api/candidate/",candidateRouter)
 App.use("/api/apply",router)
 App.use("/api/recruiter",recruiterRouter)
+App.use("/api/contact",contactFormHandler)
 // App.get("/",(req,res)=>{
 //     res.send({
 //         "message":"Backend Working"
 //     })
 // })
+App.use('/dummy/email',dummyEmailService)
 App.use("/",googleAuthRoutes)
 App.listen(port,()=>{
     console.log(`App listening on port ${port}`);

@@ -1,14 +1,19 @@
-import { collection, addDoc, getDocs, query, where, getDoc,doc,deleteDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, where, getDoc,doc,deleteDoc,setDoc } from "firebase/firestore";
 import { db } from "../utils/firebaseConfiguration.js";
 import ExcelJS from "exceljs";
-// import { uploadToDrive } from "../middleware/googleDrive2.js";
+import { uploadToDrive } from "../middleware/googleDrive2.js";
 
 
-const folderId = "1RrOSC25gClytkBDptOH3UorxzBxflEHg";
+const folderId = "1edlGwtmIsRRGcW-gaQRc1Mk-3w6xKv_J";
 export const createBlog = async (req, res) => {
   try {
-    const { title, description,author} = req.body;
+    const { title, description, author } = req.body;
     const file = req.file;
+
+    // Validate required fields
+    if (!title || !description || !author) {
+      return res.status(400).json({ error: "Title, description, and author are required" });
+    }
 
     if (!file) {
       return res.status(400).json({ error: "Image file is missing" });
@@ -18,14 +23,19 @@ export const createBlog = async (req, res) => {
       return res.status(400).json({ error: "Google Drive folderId is required" });
     }
 
-    // Upload image to the specified Google Drive folder
-    // const imageURL = await uploadToDrive(
-    //   file.buffer,
-    //   `${Date.now()}_${file.originalname}`,
-    //   file.mimetype,
-    //   folderId
-    // );
-    const imageURL = "";
+    // Upload image to Google Drive
+    let imageURL;
+    try {
+      imageURL = await uploadToDrive(
+        file.buffer,
+        `${Date.now()}_${file.originalname}`,
+        file.mimetype,
+        folderId
+      );
+    } catch (err) {
+      console.error("Google Drive upload error:", err);
+      return res.status(500).json({ error: "Failed to upload image to Google Drive" });
+    }
 
     // Save blog details to Firestore
     const docRef = await addDoc(collection(db, "blogs"), {
@@ -36,7 +46,11 @@ export const createBlog = async (req, res) => {
       createdAt: new Date(),
     });
 
-    res.status(200).json({ message: "Blog created successfully", id: docRef.id });
+    res.status(200).json({
+      message: "Blog created successfully",
+      id: docRef.id,
+      imageURL
+    });
   } catch (error) {
     console.error("Error creating blog:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -192,5 +206,187 @@ export const getCandidatesForJobInExcel = async (req, res) => {
   } catch (error) {
     console.error("Error generating Excel:", error);
     res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+
+// Fetch all partners (only id & company name for dropdown)
+export const getAllPartners = async (req, res) => {
+  try {
+    const querySnapshot = await getDocs(collection(db, "recruiters"));
+    const partners = querySnapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      companyName: docSnap.data().companyName,
+    }));
+    res.status(200).json({ success: true, data: partners });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Fetch single partner details by doc.id
+export const getPartnerById = async (req, res) => {
+  try {
+    const companyName = req.body.companyName;
+    console.log(companyName);
+
+    const q = query(
+      collection(db, "recruiters"),
+      where("companyName", "==", companyName)
+    );
+
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      return res.status(404).json({ success: false, message: "Partner not found" });
+    }
+
+    // Assuming companyName is unique, we'll take the first match
+    const docSnap = querySnapshot.docs[0];
+    res.status(200).json({
+      success: true,
+      data: { id: docSnap.id, ...docSnap.data() }
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const addCategory = async (req, res) => {
+  try {
+    const { categoryName } = req.body;
+
+    if (!categoryName || categoryName.trim() === "") {
+      return res.status(400).json({ success: false, message: "Category name is required" });
+    }
+
+    // Replace slashes to make it safe for Firestore document IDs
+    const safeCategory = categoryName.replace(/\//g, "-or-");
+
+    // Reference to the category document
+    const categoryRef = doc(db, "jobs", safeCategory);
+
+    // Check if category already exists
+    const categorySnap = await getDoc(categoryRef);
+    if (categorySnap.exists()) {
+      return res.status(400).json({
+        success: false,
+        message: `Category '${categoryName}' already exists`
+      });
+    }
+
+    // Create the category document
+    await setDoc(categoryRef, {
+      createdAt: new Date().toISOString(),
+      name: categoryName,
+      noOfJobs: 0
+    });
+
+    res.json({ success: true, message: `Category '${categoryName}' added successfully` });
+  } catch (error) {
+    console.error("Error adding category:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+
+export const addTestimonial = async (req, res) => {
+  try {
+    const { name, designation, message } = req.body;
+    const file = req.file;
+
+    // Validate
+    if (!name || !designation || !message) {
+      return res.status(400).json({ error: "Name, designation, and message are required" });
+    }
+
+    if (!file) {
+      return res.status(400).json({ error: "Image file is missing" });
+    }
+
+    if (!folderId) {
+      return res.status(400).json({ error: "Google Drive folderId is required" });
+    }
+
+    // Upload image to Drive
+    let imageURL;
+    try {
+      imageURL = await uploadToDrive(
+        file.buffer,
+        `${Date.now()}_${file.originalname}`,
+        file.mimetype,
+        folderId
+      );
+    } catch (err) {
+      console.error("Google Drive upload error:", err);
+      return res.status(500).json({ error: "Failed to upload image to Google Drive" });
+    }
+
+    // Save to Firestore
+    const docRef = await addDoc(collection(db, "testimonials"), {
+      name,
+      designation,
+      message,
+      imageURL,
+      createdAt: new Date(),
+    });
+
+    res.status(200).json({
+      message: "Testimonial added successfully",
+      id: docRef.id,
+      imageURL
+    });
+
+  } catch (error) {
+    console.error("Error adding testimonial:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+// Fetch testimonials
+export const fetchTestimonials = async (req, res) => {
+  try {
+    const testimonialsRef = collection(db, "testimonials");
+    const q = query(testimonialsRef);
+
+    const querySnapshot = await getDocs(q);
+
+    const testimonials = querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate().toISOString() || null,
+      };
+    });
+
+    res.status(200).json(testimonials);
+  } catch (error) {
+    console.error("Error fetching testimonials:", error);
+    res.status(500).json({ error: "Failed to fetch testimonials" });
+  }
+};
+export const deleteTestimonial = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(id)
+    // Validate ID
+    if (!id) {
+      return res.status(400).json({ error: "Testimonial ID is required" });
+    }
+
+    // Delete from Firestore
+    const testimonialRef = doc(db, "testimonials", id);
+    await deleteDoc(testimonialRef);
+
+    res.status(200).json({
+      message: "Testimonial deleted successfully",
+      id
+    });
+
+  } catch (error) {
+    console.error("Error deleting testimonial:", error);
+    res.status(500).json({ error: "Failed to delete testimonial" });
   }
 };

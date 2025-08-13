@@ -3,6 +3,7 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 
 export const adminLoginController = async (req, res) => {
   try {
+    console.log("Admin login controller called");
     res.json({
       message: "Login successful",
       email: req.user.email,

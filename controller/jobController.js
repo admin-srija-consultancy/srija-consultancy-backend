@@ -99,6 +99,122 @@ export const addJobPosting = async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 };
+export const postJob = async (req, res) => {
+  try {
+    const {
+      jobTitle,
+      category,
+      description,
+      experience,
+      jobType,
+      location,
+      qualification,
+      salary,
+      vacancy,
+      companyName,
+      contactPersonName,
+      email,
+      number,
+      status,
+      requestedAt,
+    } = req.body;
+
+    // Basic validation
+    if (
+      !jobTitle ||
+      !category ||
+      !description ||
+      !experience ||
+      !jobType ||
+      !location ||
+      !qualification ||
+      !salary ||
+      vacancy == null ||
+      !companyName ||
+      !contactPersonName ||
+      !email ||
+      !number ||
+      !status
+    ) {
+      return res.status(400).json({ message: "All required fields must be provided" });
+    }
+
+    // Generate unique IDs
+    const uniqueJobId = uuidv4();
+    const requestId = uuidv4(); // dynamically generate requestId
+    const safeCategory = category.replace(/\//g, "-or-");
+
+    // Job data
+    const jobData = {
+      uniqueJobId,
+      jobTitle,
+      category,
+      description,
+      experience,
+      jobType,
+      location,
+      qualification,
+      salary,
+      vacancy,
+      companyName,
+      contactPersonName,
+      email,
+      number,
+      status,
+      requestedAt: requestedAt || new Date().toISOString()
+    };
+
+    // 1. Add to category collection
+    const categoryDocRef = doc(db, "jobs", safeCategory);
+    const categorySnap = await getDoc(categoryDocRef);
+
+    if (!categorySnap.exists()) {
+      await setDoc(categoryDocRef, {
+        name: category,
+        noOfJobs: 1
+      });
+    } else {
+      await updateDoc(categoryDocRef, {
+        noOfJobs: increment(1)
+      });
+    }
+
+    // 2. Add job to subcollection inside category
+    const listRef = collection(db, "jobs", safeCategory, "list");
+    await setDoc(doc(listRef, uniqueJobId), jobData);
+
+    // 3. Add/update jobsRequested collection
+    const requestDocRef = doc(db, "jobsRequested", requestId);
+    await setDoc(requestDocRef, {
+      category,
+      description,
+      experience,
+      jobTitle,
+      jobType,
+      location,
+      qualification,
+      recruiter: { companyName, contactPersonName, email, number },
+      companyName,
+      contactPersonName,
+      email,
+      number,
+      requestId,
+      requestedAt: requestedAt || new Date().toISOString(),
+      salary,
+      status: "approved",
+      vacancy
+    });
+
+    return res.status(200).json({
+      message: "Job posted successfully",
+      jobId: uniqueJobId,
+      requestId
+    });
+  } catch (error) {
+    console.error("Error posting job:", error);
+    return res.status(500).json({ message: error.message });
+  }
+};
 export const addNewJobPosting = async (req, res) => {
   const {
     role,
