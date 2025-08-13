@@ -23,6 +23,7 @@ const allowedOrigins = [
   "https://srijaconsultancy.in",
   "http://127.0.0.1:5501",
   "https://www.srijaconsultancy.in/",
+  "https://www.srijaconsultancy.in",
 ];
 
 App.use(cors({
